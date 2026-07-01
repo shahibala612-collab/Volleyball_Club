@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏐 Volleyball Manager - ADMIN</title>
+
+    <!-- Firebase Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0a0a1a; color: #fff; min-height: 100vh; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #e94560; border-radius: 10px; }
+
+        .header { background: linear-gradient(135deg, #e94560, #0f3460); padding: 15px 20px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 20px rgba(233,69,96,0.4); }
+        .header h1 { font-size: 1.5em; }
+        .admin-badge { display: inline-block; background: #fdcb6e; color: #000; padding: 3px 10px; border-radius: 15px; font-size: 12px; margin-left: 10px; font-weight: bold; }
+        .sync-status { display: inline-block; margin-left: 10px; padding: 3px 10px; border-radius: 15px; font-size: 11px; font-weight: bold; }
+        .sync-on { background: #00b894; color: #fff; }
+        .sync-off { background: #d63031; color: #fff; }
+
+        .nav { display: flex; justify-content: center; gap: 8px; padding: 12px; background: rgba(0,0,0,0.5); flex-wrap: wrap; position: sticky; top: 60px; z-index: 99; }
+        .nav-btn { padding: 10px 18px; border: 2px solid #e94560; background: transparent; color: #fff; border-radius: 25px; cursor: pointer; font-size: 13px; font-weight: bold; transition: all 0.3s; }
+        .nav-btn:hover, .nav-btn.active { background: #e94560; box-shadow: 0 0 15px rgba(233,69,96,0.4); }
+
+        .section { display: none; padding: 15px; max-width: 1000px; margin: 0 auto; }
+        .section.active { display: block; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(15px); } to { opacity:1; transform:translateY(0); } }
+
+        .card { background: linear-gradient(135deg, #12122a, #1a1a35); border-radius: 15px; padding: 20px; margin-bottom: 15px; border: 1px solid rgba(233,69,96,0.15); box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
+        .card h2 { color: #e94560; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid rgba(233,69,96,0.3); font-size: 1.2em; }
+        .card h3 { color: #00d2ff; margin: 12px 0 8px; font-size: 1em; }
+
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 4px; color: #00d2ff; font-weight: bold; font-size: 13px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 2px solid #222; border-radius: 10px; background: rgba(255,255,255,0.04); color: #fff; font-size: 15px; }
+        .form-group input:focus, .form-group select:focus { border-color: #e94560; outline: none; }
+        .form-group select option { background: #1a1a35; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+
+        .btn { padding: 10px 22px; border: none; border-radius: 25px; cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.3s; margin: 4px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .btn-primary { background: linear-gradient(135deg, #e94560, #c23152); color: #fff; }
+        .btn-success { background: linear-gradient(135deg, #00b894, #00a381); color: #fff; }
+        .btn-danger { background: linear-gradient(135deg, #d63031, #b71c1c); color: #fff; }
+        .btn-info { background: linear-gradient(135deg, #0984e3, #00d2ff); color: #fff; }
+        .btn-sm { padding: 6px 14px; font-size: 12px; }
+
+        .p-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 8px 0; }
+        .p-check { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 10px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s; font-size: 14px; }
+        .p-check:hover { border-color: #e94560; }
+        .p-check input[type="checkbox"] { width: 18px; height: 18px; accent-color: #e94560; }
+        .p-check.t1 { border-color: #00b894; background: rgba(0,184,148,0.08); }
+        .p-check.t2 { border-color: #0984e3; background: rgba(9,132,227,0.08); }
+        .p-check.present { border-color: #00b894; background: rgba(0,184,148,0.15); }
+        .p-check.absent { border-color: #d63031; background: rgba(214,48,49,0.08); opacity: 0.7; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 15px; }
+        .stat-card { background: linear-gradient(135deg, #12122a, #0f3460); border-radius: 12px; padding: 15px; text-align: center; border: 1px solid rgba(233,69,96,0.2); }
+        .stat-card .num { font-size: 2em; font-weight: bold; color: #e94560; }
+        .stat-card .lbl { color: #888; font-size: 12px; margin-top: 3px; }
+
+        .tbl-wrap { overflow-x: auto; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th, td { padding: 10px 12px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; }
+        th { background: linear-gradient(135deg, #e94560, #c23152); color: #fff; position: sticky; top: 0; }
+        tr:hover { background: rgba(233,69,96,0.06); }
+
+        .text-green { color: #00b894; }
+        .text-red { color: #d63031; }
+        .text-yellow { color: #fdcb6e; }
+        .text-blue { color: #0984e3; }
+
+        .match-card { background: rgba(255,255,255,0.03); border-radius: 12px; padding: 15px; margin-bottom: 10px; border-left: 4px solid #e94560; }
+        .match-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 10px; gap: 5px; }
+        .match-teams-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; }
+        .t-box { padding: 12px; border-radius: 10px; text-align: center; }
+        .t-box.t1-box { background: rgba(0,184,148,0.08); border: 1px solid rgba(0,184,148,0.3); }
+        .t-box.t2-box { background: rgba(9,132,227,0.08); border: 1px solid rgba(9,132,227,0.3); }
+        .t-box.winner { border-color: #fdcb6e; box-shadow: 0 0 15px rgba(253,203,110,0.2); }
+        .t-box .score { font-size: 1.8em; font-weight: bold; }
+        .t-box .names { font-size: 11px; color: #888; margin-top: 5px; }
+        .vs { font-size: 1.2em; color: #e94560; font-weight: bold; }
+
+        .series-card { background: linear-gradient(135deg, #0f3460, #12122a); border-radius: 15px; padding: 20px; margin-bottom: 15px; border: 2px solid #fdcb6e; }
+        .series-score-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 15px; align-items: center; margin: 15px 0; text-align: center; }
+        .series-score-row .big { font-size: 2.5em; font-weight: bold; }
+        .progress-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin: 5px 0; }
+        .progress-fill { height: 100%; border-radius: 4px; }
+        .pg { background: #00b894; }
+        .pr { background: #e94560; }
+
+        .badge { padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: bold; }
+        .badge-on { background: #00b894; color: #fff; }
+        .badge-done { background: #e94560; color: #fff; }
+        .badge-paid { background: #00b894; color: #fff; }
+        .badge-unpaid { background: #d63031; color: #fff; }
+
+        .modal-bg { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 200; justify-content: center; align-items: center; padding: 20px; }
+        .modal-bg.active { display: flex; }
+        .modal { background: #12122a; border-radius: 15px; padding: 25px; max-width: 500px; width: 100%; border: 2px solid #e94560; max-height: 80vh; overflow-y: auto; }
+        .modal h2 { color: #e94560; margin-bottom: 15px; }
+
+        .toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 22px; border-radius: 10px; color: #fff; font-weight: bold; z-index: 999; animation: tIn 0.4s, tOut 0.4s 2.6s; }
+        .toast-ok { background: #00b894; }
+        .toast-err { background: #d63031; }
+        @keyframes tIn { from { transform: translateX(100%); opacity:0; } to { transform: translateX(0); opacity:1; } }
+        @keyframes tOut { from { opacity:1; } to { opacity:0; } }
+
+        .wr-bar { width: 100%; height: 6px; background: #d63031; border-radius: 3px; overflow: hidden; margin-top: 6px; }
+        .wr-fill { height: 100%; background: #00b894; border-radius: 3px; }
+
+        .player-card { background: rgba(255,255,255,0.03); border-radius: 12px; padding: 15px; border: 1px solid rgba(233,69,96,0.15); transition: all 0.3s; }
+        .player-card:hover { border-color: #e94560; transform: translateY(-3px); }
+        .player-avatar { width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #e94560, #0f3460); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2em; }
+        .player-mini-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 10px; }
+        .pms { text-align: center; padding: 5px; background: rgba(255,255,255,0.03); border-radius: 6px; }
+        .pms .v { font-weight: bold; font-size: 1em; }
+        .pms .l { font-size: 9px; color: #888; }
+
+        .del-btn { background: none; border: none; color: #d63031; cursor: pointer; font-size: 16px; }
+        .del-btn:hover { transform: scale(1.2); }
+
+        .att-quick-btns { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .att-info-box { background: rgba(0,210,255,0.08); border: 1px solid rgba(0,210,255,0.3); border-radius: 10px; padding: 12px; margin-bottom: 12px; font-size: 13px; color: #00d2ff; }
+        .att-day-card { background: rgba(255,255,255,0.03); padding: 10px 15px; border-radius: 10px; margin: 6px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 5px; }
+
+        .firebase-status { padding: 15px; border-radius: 10px; margin: 10px 0; text-align: center; font-weight: bold; }
+        .fb-connected { background: rgba(0,184,148,0.1); border: 2px solid #00b894; color: #00b894; }
+        .fb-disconnected { background: rgba(214,48,49,0.1); border: 2px solid #d63031; color: #d63031; }
+        .fb-syncing { background: rgba(253,203,110,0.1); border: 2px solid #fdcb6e; color: #fdcb6e; }
+
+        .loader { display: inline-block; width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 600px) {
+            .header h1 { font-size: 1.1em; }
+            .nav-btn { padding: 8px 12px; font-size: 11px; }
+            .match-teams-row { grid-template-columns: 1fr; }
+            .vs { display: block; text-align: center; }
+            .series-score-row { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🏐 Volleyball Manager <span class="admin-badge">ADMIN</span> <span class="sync-status sync-off" id="syncStatus">⚪ Connecting...</span></h1>
+</div>
+
+<div class="nav">
+    <button class="nav-btn active" onclick="go('dash')">📊 Dashboard</button>
+    <button class="nav-btn" onclick="go('players')">👥 Players</button>
+    <button class="nav-btn" onclick="go('attendance')">📅 Attendance</button>
+    <button class="nav-btn" onclick="go('attstats')">📊 Attendance Stats</button>
+    <button class="nav-btn" onclick="go('pmatch')">🏐 Practice Match</button>
+    <button class="nav-btn" onclick="go('history')">📋 History</button>
+    <button class="nav-btn" onclick="go('series')">🏆 Series</button>
+    <button class="nav-btn" onclick="go('stats')">📈 Player Stats</button>
+</div>
+
+<!-- DASHBOARD -->
+<div class="section active" id="dash">
+    <div class="stats-grid" id="d-stats"></div>
+    <div class="card">
+        <h2>🏅 Top Players</h2>
+        <div class="tbl-wrap">
+            <table id="d-top">
+                <thead><tr><th>Rank</th><th>Player</th><th>Attendance</th><th>Played</th><th>Won</th><th>Lost</th><th>Win%</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card">
+        <h2>🕐 Recent Matches</h2>
+        <div id="d-recent"></div>
+    </div>
+</div>
+
+<!-- PLAYERS -->
+<div class="section" id="players">
+    <div class="card">
+        <h2>➕ Add Player</h2>
+        <div class="form-row">
+            <div class="form-group"><label>Player Name</label><input type="text" id="pName" placeholder="Enter name"></div>
+            <div class="form-group" style="display:flex;align-items:flex-end;"><button class="btn btn-primary" onclick="addPlayer()">➕ Add</button></div>
+        </div>
+    </div>
+    <div class="card">
+        <h2>👥 All Players (<span id="pCount">0</span>)</h2>
+        <div class="p-grid" id="pList"></div>
+    </div>
+</div>
+
+<!-- ATTENDANCE -->
+<div class="section" id="attendance">
+    <div class="card">
+        <h2>📅 Mark Daily Attendance</h2>
+        <div class="att-info-box">ℹ️ Roz attendance mark karo. Jo player aaye usko ✅ tick karo.</div>
+        <div class="form-group"><label>📅 Date</label><input type="date" id="attDate" onchange="loadAttForDate()"></div>
+        <div class="att-quick-btns">
+            <button class="btn btn-success btn-sm" onclick="markAll(true)">✅ Mark All Present</button>
+            <button class="btn btn-danger btn-sm" onclick="markAll(false)">❌ Mark All Absent</button>
+        </div>
+        <div class="p-grid" id="attList"></div>
+        <button class="btn btn-primary" onclick="saveAttendance()" style="margin-top:12px;">💾 Save Attendance</button>
+    </div>
+    <div class="card">
+        <h2>📋 Attendance History</h2>
+        <div id="attHistory"></div>
+    </div>
+</div>
+<!-- ATTENDANCE STATS & FINE -->
+<div class="section" id="attstats">
+    <div class="card">
+        <h2>📊 Player Attendance & Fine</h2>
+        <div class="att-info-box">
+            ℹ️ Yahan har player ki individual attendance & fine details dekho. Fine rate aap set kar sakte ho.
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label>💰 Fine per Absent (₹)</label>
+                <input type="number" id="fineRate" value="20" onchange="saveFineRate()">
+            </div>
+            <div class="form-group">
+                <label>👤 Select Player</label>
+                <select id="attStatsPlayer" onchange="renderPlayerAttStats()">
+                    <option value="">-- Select Player --</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="playerAttDetails"></div>
+    </div>
+
+    <div class="card">
+        <h2>📋 All Players Summary</h2>
+        <div class="tbl-wrap">
+            <table id="allAttTable">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>✅ Present</th>
+                        <th>❌ Absent</th>
+                        <th>💰 Total Fine</th>
+                        <th>✅ Paid</th>
+                        <th>⏳ Baqaya</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<!-- PRACTICE MATCH -->
+ 
+<div class="section" id="pmatch">
+    <div class="card">
+        <h2>🏐 Save Practice Match</h2>
+        <div class="att-info-box" id="matchAttNote">ℹ️ Only present players will appear here.</div>
+        <div class="form-group"><label>📅 Date</label><input type="date" id="mDate" onchange="renderMatchPlayers()"></div>
+        <h3>🟢 Team 1 Players</h3>
+        <div class="p-grid" id="mT1"></div>
+        <h3>🔵 Team 2 Players</h3>
+        <div class="p-grid" id="mT2"></div>
+        <div class="form-row" style="margin-top:12px;">
+            <div class="form-group"><label>Score Team 1</label><input type="number" id="mS1" placeholder="25"></div>
+            <div class="form-group"><label>Score Team 2</label><input type="number" id="mS2" placeholder="20"></div>
+            <div class="form-group"><label>🏆 Winner</label><select id="mWin"><option value="">Select</option><option value="t1">Team 1</option><option value="t2">Team 2</option></select></div>
+        </div>
+        <button class="btn btn-success" onclick="saveMatch()">💾 Save Match</button>
+    </div>
+</div>
+
+<!-- HISTORY -->
+<div class="section" id="history">
+    <div class="card"><h2>📋 Practice Match History</h2><div id="hList"></div></div>
+</div>
+
+<!-- SERIES -->
+<div class="section" id="series">
+    <div class="card">
+        <h2>🏆 Create Series</h2>
+        <div class="att-info-box">ℹ️ Series players is series ka part hain. Roz ki attendance alag se mark karein.</div>
+        <div class="form-row">
+            <div class="form-group"><label>Series Name</label><input type="text" id="sName" placeholder="e.g. Weekend Cup"></div>
+            <div class="form-group">
+                <label>Best Of</label>
+                <select id="sBestOf">
+                    <option value="3">Best of 3</option>
+                    <option value="5">Best of 5</option>
+                    <option value="7">Best of 7</option>
+                    <option value="9">Best of 9</option>
+                    <option value="0">Custom</option>
+                </select>
+            </div>
+            <div class="form-group" id="sCustomDiv" style="display:none;"><label>Total Matches</label><input type="number" id="sCustom" placeholder="e.g. 11"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>Team A Name</label><input type="text" id="sTA" placeholder="Team A"></div>
+            <div class="form-group"><label>Team B Name</label><input type="text" id="sTB" placeholder="Team B"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-group"><label>💰 Total Series Payment (₹)</label><input type="number" id="sPayment" placeholder="e.g. 5000"></div>
+        </div>
+        <h3>Team A Players</h3><div class="p-grid" id="sTA_P"></div>
+        <h3>Team B Players</h3><div class="p-grid" id="sTB_P"></div>
+        <button class="btn btn-primary" onclick="createSeries()" style="margin-top:12px;">🏆 Create Series</button>
+    </div>
+    <div class="card"><h2>📋 All Series</h2><div id="sList"></div></div>
+</div>
+
+<!-- STATS -->
+<div class="section" id="stats">
+    <div class="card">
+        <h2>📈 Player Stats</h2>
+        <div class="form-row" style="margin-bottom:12px;">
+            <div class="form-group">
+                <label>Sort By</label>
+                <select id="statSort" onchange="renderStats()">
+                    <option value="wins">Most Wins (Top)</option>
+                    <option value="winrate">Best Win Rate (Top)</option>
+                    <option value="attendance">Best Attendance (Top)</option>
+                    <option value="matches">Most Matches Played (Top)</option>
+                    <option value="losses">Most Losses (Bottom 😂)</option>
+                </select>
+            </div>
+        </div>
+        <div class="tbl-wrap">
+            <table id="statTbl">
+                <thead><tr><th>#</th><th>Player</th><th>📅 Attendance</th><th>🏐 Matches</th><th>✅ Wins</th><th>❌ Losses</th><th>📊 Win %</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODALS -->
+ <!-- FINE PAYMENT MODAL -->
+<div class="modal-bg" id="finePayModal">
+    <div class="modal">
+        <h2>💰 Fine Payment</h2>
+        <input type="hidden" id="finePayPid">
+        <p style="margin-bottom:10px;">
+            Player: <b id="finePayName" class="text-yellow"></b><br>
+            Total Fine: <b id="finePayTotal" class="text-red"></b> | 
+            Paid: <b id="finePayPaid" class="text-green"></b> | 
+            Baqaya: <b id="finePayRemain" class="text-yellow"></b>
+        </p>
+        <div class="form-group">
+            <label>Amount Paying Now (₹)</label>
+            <input type="number" id="finePayAmt" placeholder="Enter amount">
+        </div>
+        <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="finePayDate">
+        </div>
+        <div class="form-group">
+            <label>Note (Optional)</label>
+            <input type="text" id="finePayNote" placeholder="e.g. Cash received">
+        </div>
+        <button class="btn btn-success" onclick="recordFinePayment()">💳 Pay</button>
+        <button class="btn btn-danger" onclick="closeM('finePayModal')">✖ Cancel</button>
+        <div id="finePayHistory" style="margin-top:15px;"></div>
+    </div>
+</div>
+<div class="modal-bg" id="smModal">
+    <div class="modal">
+        <h2>🏐 Add Series Match</h2>
+        <input type="hidden" id="smId">
+        <div class="form-group"><label>Date</label><input type="date" id="smDate"></div>
+        <div class="form-row">
+            <div class="form-group"><label>Score Team A</label><input type="number" id="smSA" placeholder="25"></div>
+            <div class="form-group"><label>Score Team B</label><input type="number" id="smSB" placeholder="20"></div>
+        </div>
+        <div class="form-group"><label>Winner</label><select id="smWin"></select></div>
+        <button class="btn btn-success" onclick="addSeriesMatch()">💾 Save</button>
+        <button class="btn btn-danger" onclick="closeM('smModal')">✖ Cancel</button>
+    </div>
+</div>
+
+<div class="modal-bg" id="spModal">
+    <div class="modal">
+        <h2>💰 Series Payment</h2>
+        <input type="hidden" id="spId">
+        <p style="margin-bottom:10px;">Total: <span id="spTotal" class="text-yellow"></span> | Paid: <span id="spPaid" class="text-green"></span> | Remaining: <span id="spRemain" class="text-red"></span></p>
+        <div class="form-group"><label>Amount (₹)</label><input type="number" id="spAmt"></div>
+        <div class="form-group"><label>Date</label><input type="date" id="spDate"></div>
+        <div class="form-group"><label>Note</label><input type="text" id="spNote" placeholder="Optional"></div>
+        <button class="btn btn-success" onclick="paySeriesAmt()">💳 Pay</button>
+        <button class="btn btn-danger" onclick="closeM('spModal')">✖ Cancel</button>
+        <div id="spHistory" style="margin-top:15px;"></div>
+    </div>
+</div>
+
+
+<script>
+// ===============================================
+// 🔥 FIREBASE CONFIG - YAHAN APNA CONFIG PASTE KARO
+// ===============================================
+const firebaseConfig = {
+    apiKey: "AIzaSyC1JwkLoW7sEMk7om7njrHraNhcfGeTrhk",
+    authDomain: "volleyball-club-2026.firebaseapp.com",
+    databaseURL: "https://volleyball-club-2026-default-rtdb.firebaseio.com",
+    projectId: "volleyball-club-2026",
+    storageBucket: "volleyball-club-2026.firebasestorage.app",
+    messagingSenderId: "295680525482",
+    appId: "1:295680525482:web:38269a6a1969a0a6b4fcd3"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const dbRef = db.ref('volleyball');
+
+let D = { players: [], matches: [], series: [], attendance: {} };
+let isOnline = false;
+
+function setSyncStatus(status) {
+    const el = document.getElementById('syncStatus');
+    if(status === 'connected') {
+        el.className = 'sync-status sync-on';
+        el.textContent = '🟢 Live Synced';
+        isOnline = true;
+    } else if(status === 'syncing') {
+        el.className = 'sync-status';
+        el.style.background = '#fdcb6e';
+        el.style.color = '#000';
+        el.innerHTML = '<span class="loader"></span> Syncing...';
+    } else {
+        el.className = 'sync-status sync-off';
+        el.textContent = '🔴 Offline';
+        isOnline = false;
+    }
+}
+
+// Load data from Firebase
+function loadFromFirebase() {
+    setSyncStatus('syncing');
+    dbRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if(data) {
+            D = {
+                players: data.players || [],
+                matches: data.matches || [],
+                series: data.series || [],
+                attendance: data.attendance || {},
+                finePayments: data.finePayments || {},
+                fineRate: data.fineRate || 20
+            };
+        }
+        setSyncStatus('connected');
+        renderDash();
+    }, (error) => {
+        console.error('Firebase error:', error);
+        setSyncStatus('disconnected');
+        toast('Firebase connection failed! Check config.', false);
+    });
+}
+// Save data to Firebase
+function saveToFirebase() {
+    setSyncStatus('syncing');
+    dbRef.set(D)
+        .then(() => {
+            setSyncStatus('connected');
+        })
+        .catch((error) => {
+            console.error('Save error:', error);
+            setSyncStatus('disconnected');
+            toast('Save failed!', false);
+        });
+}
+
+const save = saveToFirebase;
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
+function pName(id) { const p = D.players.find(x=>x.id===id); return p ? p.name : '?'; }
+function today() { return new Date().toISOString().split('T')[0]; }
+
+function toast(msg, ok=true) {
+    const t = document.createElement('div');
+    t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(), 3000);
+}
+
+function closeM(id) { document.getElementById(id).classList.remove('active'); }
+
+function go(id) {
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.target.classList.add('active');
+    refresh(id);
+}
+
+function refresh(id) {
+    switch(id) {
+        case 'dash': renderDash(); break;
+        case 'players': renderPlayers(); break;
+        case 'attendance': renderAttendance(); break;
+        case 'attstats': renderAttStatsSection(); break;
+        case 'pmatch': renderMatchForm(); break;
+        case 'history': renderHistory(); break;
+        case 'series': renderSeriesSection(); break;
+        case 'stats': renderStats(); break;
+    }
+}
+
+function addPlayer() {
+    const n = document.getElementById('pName').value.trim();
+    if(!n) { toast('Enter name!', false); return; }
+    if(D.players.find(p=>p.name.toLowerCase()===n.toLowerCase())) { toast('Already exists!', false); return; }
+    D.players.push({ id: uid(), name: n });
+    save();
+    document.getElementById('pName').value = '';
+    toast(n + ' added! ✅');
+    renderPlayers();
+}
+
+function delPlayer(id) {
+    const p = pName(id);
+    if(!confirm('Delete ' + p + '?')) return;
+    D.players = D.players.filter(x=>x.id!==id);
+    save();
+    toast(p + ' deleted!');
+    renderPlayers();
+}
+
+function renderPlayers() {
+    const c = document.getElementById('pList');
+    document.getElementById('pCount').textContent = D.players.length;
+    c.innerHTML = D.players.map(p => {
+        const s = getStats(p.id);
+        return `<div class="player-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div class="player-avatar">${p.name.charAt(0).toUpperCase()}</div>
+                    <div><b>${p.name}</b></div>
+                </div>
+                <button class="del-btn" onclick="delPlayer('${p.id}')">🗑️</button>
+            </div>
+            <div class="player-mini-stats">
+                <div class="pms"><div class="v text-blue">${s.att}</div><div class="l">Attendance</div></div>
+                <div class="pms"><div class="v">${s.m}</div><div class="l">Played</div></div>
+                <div class="pms"><div class="v text-green">${s.w}</div><div class="l">Won</div></div>
+                <div class="pms"><div class="v text-red">${s.l}</div><div class="l">Lost</div></div>
+            </div>
+            <div class="wr-bar"><div class="wr-fill" style="width:${s.wr}%"></div></div>
+            <div style="text-align:center;font-size:11px;color:#888;margin-top:3px;">${s.wr}% Win Rate</div>
+        </div>`;
+    }).join('') || '<p style="color:#888;text-align:center;">No players added yet</p>';
+}
+
+function getStats(pid) {
+    let m=0, w=0, l=0, att=0;
+    
+    // Count attendance days
+    Object.values(D.attendance || {}).forEach(arr => { 
+        if((arr||[]).includes(pid)) att++; 
+    });
+    
+    // Count matches - ONLY if player was marked PRESENT on that match date
+    D.matches.forEach(x => {
+        const in1 = (x.t1 || []).includes(pid);
+        const in2 = (x.t2 || []).includes(pid);
+        
+        if(in1 || in2) {
+            // Check if attendance was marked for this date
+            const attForDate = D.attendance && D.attendance[x.date];
+            
+            // Match counts ONLY if:
+            // 1. No attendance marked for that date (backward compatibility) OR
+            // 2. Player was marked PRESENT on that date
+            const wasPresent = !attForDate || attForDate.includes(pid);
+            
+            if(wasPresent) {
+                m++;
+                if((in1 && x.win==='t1')||(in2 && x.win==='t2')) w++;
+                else l++;
+            }
+        }
+    });
+    
+    const wr = m>0 ? ((w/m)*100).toFixed(1) : 0;
+    return { m, w, l, att, wr: parseFloat(wr) };
+}
+
+function renderAttendance() {
+    if(!document.getElementById('attDate').value) document.getElementById('attDate').value = today();
+    loadAttForDate();
+    renderAttHistory();
+}
+
+function loadAttForDate() {
+    const date = document.getElementById('attDate').value;
+    const present = D.attendance[date] || [];
+    const c = document.getElementById('attList');
+    if(!D.players.length) { c.innerHTML = '<p style="color:#888;text-align:center;">Add players first!</p>'; return; }
+    c.innerHTML = D.players.map(p => {
+        const isP = present.includes(p.id);
+        return `<label class="p-check ${isP?'present':'absent'}" id="att-${p.id}">
+            <input type="checkbox" value="${p.id}" ${isP?'checked':''} onchange="toggleAtt('${p.id}')">
+            ${p.name}
+        </label>`;
+    }).join('');
+}
+
+function toggleAtt(pid) {
+    const el = document.getElementById('att-'+pid);
+    const cb = el.querySelector('input');
+    if(cb.checked) { el.classList.add('present'); el.classList.remove('absent'); }
+    else { el.classList.remove('present'); el.classList.add('absent'); }
+}
+
+function markAll(present) {
+    document.querySelectorAll('#attList input[type="checkbox"]').forEach(cb => {
+        cb.checked = present;
+        const el = cb.closest('.p-check');
+        if(present) { el.classList.add('present'); el.classList.remove('absent'); }
+        else { el.classList.remove('present'); el.classList.add('absent'); }
+    });
+}
+
+function saveAttendance() {
+    const date = document.getElementById('attDate').value;
+    if(!date) { toast('Select date!', false); return; }
+    const present = [];
+    document.querySelectorAll('#attList input:checked').forEach(cb => present.push(cb.value));
+    if(!D.attendance) D.attendance = {};
+    D.attendance[date] = present;
+    save();
+    toast(`Attendance saved (${present.length} present) ✅`);
+    renderAttHistory();
+}
+
+function delAtt(date) {
+    if(!confirm('Delete attendance for ' + date + '?')) return;
+    delete D.attendance[date];
+    save();
+    toast('Attendance deleted!');
+    renderAttendance();
+}
+
+function renderAttHistory() {
+    const c = document.getElementById('attHistory');
+    const dates = Object.keys(D.attendance || {}).sort((a,b)=>new Date(b)-new Date(a));
+    if(!dates.length) { c.innerHTML = '<p style="color:#888;text-align:center;padding:15px;">No attendance records yet</p>'; return; }
+    c.innerHTML = dates.map(d => {
+        const present = D.attendance[d] || [];
+        const absent = D.players.filter(p=>!present.includes(p.id));
+        const pNames = present.map(pName).join(', ') || 'None';
+        return `<div class="att-day-card">
+            <div style="flex:1;min-width:200px;">
+                <div class="text-yellow"><b>📅 ${d}</b></div>
+                <div style="font-size:12px;color:#aaa;margin-top:3px;">
+                    <span class="text-green">✅ Present (${present.length}):</span> ${pNames}
+                </div>
+                ${absent.length?`<div style="font-size:12px;color:#aaa;margin-top:3px;">
+                    <span class="text-red">❌ Absent (${absent.length}):</span> ${absent.map(p=>p.name).join(', ')}
+                </div>`:''}
+            </div>
+            <button class="del-btn" onclick="delAtt('${d}')">🗑️</button>
+        </div>`;
+    }).join('');
+}
+
+function renderMatchForm() {
+    if(!document.getElementById('mDate').value) document.getElementById('mDate').value = today();
+    renderMatchPlayers();
+}
+
+function renderMatchPlayers() {
+    const date = document.getElementById('mDate').value;
+    const presentIds = D.attendance[date] || [];
+    const presentPlayers = D.players.filter(p => presentIds.includes(p.id));
+    const note = document.getElementById('matchAttNote');
+    if(presentPlayers.length === 0) {
+        note.innerHTML = `⚠️ <b>No attendance for ${date}!</b> Showing ALL players.`;
+        note.style.borderColor = '#fdcb6e'; note.style.color = '#fdcb6e'; note.style.background = 'rgba(253,203,110,0.08)';
+    } else {
+        note.innerHTML = `✅ Showing <b>${presentPlayers.length}</b> players present on ${date}`;
+        note.style.borderColor = 'rgba(0,210,255,0.3)'; note.style.color = '#00d2ff'; note.style.background = 'rgba(0,210,255,0.08)';
+    }
+    const playersToShow = presentPlayers.length > 0 ? presentPlayers : D.players;
+    const mkGrid = (containerId, cls) => {
+        document.getElementById(containerId).innerHTML = playersToShow.map(p =>
+            `<label class="p-check" id="${cls}-${p.id}">
+                <input type="checkbox" value="${p.id}" onchange="teamSel('${cls}','${p.id}')">
+                ${p.name}
+            </label>`
+        ).join('');
+    };
+    mkGrid('mT1','mt1'); mkGrid('mT2','mt2');
+}
+
+function teamSel(team, pid) {
+    const other = team==='mt1'?'mt2':'mt1';
+    const el = document.getElementById(team+'-'+pid);
+    const otherEl = document.getElementById(other+'-'+pid);
+    if(!el || !otherEl) return;
+    const cb = el.querySelector('input');
+    const otherCb = otherEl.querySelector('input');
+    if(cb.checked) {
+        otherCb.checked = false;
+        otherEl.classList.remove(other==='mt1'?'t1':'t2');
+        el.classList.add(team==='mt1'?'t1':'t2');
+    } else { el.classList.remove(team==='mt1'?'t1':'t2'); }
+}
+
+function saveMatch() {
+    const date = document.getElementById('mDate').value;
+    const s1 = parseInt(document.getElementById('mS1').value)||0;
+    const s2 = parseInt(document.getElementById('mS2').value)||0;
+    const win = document.getElementById('mWin').value;
+    const t1=[], t2=[];
+    document.querySelectorAll('#mT1 input:checked').forEach(c=>t1.push(c.value));
+    document.querySelectorAll('#mT2 input:checked').forEach(c=>t2.push(c.value));
+    if(!date) { toast('Select date!',false); return; }
+    if(t1.length===0||t2.length===0) { toast('Select players for both teams!',false); return; }
+    if(!win) { toast('Select winner!',false); return; }
+    D.matches.push({ id:uid(), date, t1, t2, s1, s2, win, type:'practice' });
+    save();
+    toast('Match saved! 🏐');
+    document.getElementById('mS1').value=''; document.getElementById('mS2').value=''; document.getElementById('mWin').value='';
+    renderMatchPlayers();
+}
+
+function renderHistory() {
+    const c = document.getElementById('hList');
+    const list = [...D.matches].filter(m=>m.type==='practice').sort((a,b)=>new Date(b.date)-new Date(a.date));
+    if(!list.length) { c.innerHTML='<p style="color:#888;text-align:center;padding:20px;">No matches yet</p>'; return; }
+    c.innerHTML = list.map(m => {
+        const t1n = (m.t1||[]).map(pName).join(', ');
+        const t2n = (m.t2||[]).map(pName).join(', ');
+        const lead = Math.abs(m.s1-m.s2);
+        return `<div class="match-card">
+            <div class="match-top">
+                <span class="text-yellow">📅 ${m.date}</span>
+                <span>Lead: ${lead} pts</span>
+                <button class="del-btn" onclick="delMatch('${m.id}')">🗑️</button>
+            </div>
+            <div class="match-teams-row">
+                <div class="t-box t1-box ${m.win==='t1'?'winner':''}">
+                    <div>${m.win==='t1'?'🏆':''} Team 1</div>
+                    <div class="score ${m.win==='t1'?'text-green':'text-red'}">${m.s1}</div>
+                    <div class="names">${t1n}</div>
+                </div>
+                <div class="vs">VS</div>
+                <div class="t-box t2-box ${m.win==='t2'?'winner':''}">
+                    <div>${m.win==='t2'?'🏆':''} Team 2</div>
+                    <div class="score ${m.win==='t2'?'text-green':'text-red'}">${m.s2}</div>
+                    <div class="names">${t2n}</div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function delMatch(id) {
+    if(!confirm('Delete this match?')) return;
+    D.matches = D.matches.filter(m=>m.id!==id);
+    save();
+    toast('Match deleted!');
+    renderHistory();
+}
+
+document.getElementById('sBestOf').addEventListener('change', function() {
+    document.getElementById('sCustomDiv').style.display = this.value==='0'?'block':'none';
+});
+
+function renderSeriesSection() {
+    const mkGrid = (cid, cls) => {
+        document.getElementById(cid).innerHTML = D.players.map(p =>
+            `<label class="p-check"><input type="checkbox" value="${p.id}" class="${cls}"> ${p.name}</label>`
+        ).join('');
+    };
+    mkGrid('sTA_P','sta'); mkGrid('sTB_P','stb');
+    renderSeriesList();
+}
+
+function createSeries() {
+    const name = document.getElementById('sName').value.trim();
+    let bestOf = parseInt(document.getElementById('sBestOf').value);
+    if(bestOf===0) bestOf = parseInt(document.getElementById('sCustom').value)||3;
+    const tAName = document.getElementById('sTA').value.trim()||'Team A';
+    const tBName = document.getElementById('sTB').value.trim()||'Team B';
+    const payment = parseInt(document.getElementById('sPayment').value)||0;
+    const tA=[], tB=[];
+    document.querySelectorAll('.sta:checked').forEach(c=>tA.push(c.value));
+    document.querySelectorAll('.stb:checked').forEach(c=>tB.push(c.value));
+    if(!name) { toast('Enter series name!',false); return; }
+    const winsNeeded = Math.ceil(bestOf/2);
+    D.series.push({
+        id: uid(), name, bestOf, winsNeeded, tAName, tBName, tA, tB,
+        matches: [], payment: { total: payment, paid: 0, history: [] },
+        status: 'ongoing', created: today()
+    });
+    save();
+    toast('Series created! 🏆');
+    document.getElementById('sName').value=''; document.getElementById('sPayment').value='';
+    renderSeriesList();
+}
+
+function renderSeriesList() {
+    const c = document.getElementById('sList');
+    if(!D.series.length) { c.innerHTML='<p style="color:#888;text-align:center;padding:20px;">No series yet</p>'; return; }
+    c.innerHTML = D.series.map(s => {
+        const matches = s.matches || [];
+        const wA = matches.filter(m=>m.win==='tA').length;
+        const wB = matches.filter(m=>m.win==='tB').length;
+        const played = matches.length;
+        if((wA>=s.winsNeeded || wB>=s.winsNeeded) && s.status!=='completed') { s.status='completed'; save(); }
+        const pA = s.bestOf>0?(wA/s.winsNeeded*100):0;
+        const pB = s.bestOf>0?(wB/s.winsNeeded*100):0;
+        const tAn = (s.tA||[]).map(pName).join(', ');
+        const tBn = (s.tB||[]).map(pName).join(', ');
+        const payment = s.payment || { total:0, paid:0, history:[] };
+        const payRemain = payment.total - payment.paid;
+        let seriesWinner = '';
+        if(s.status==='completed') seriesWinner = wA>=s.winsNeeded ? s.tAName : s.tBName;
+
+        return `<div class="series-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+                <h3 style="color:#fdcb6e;margin:0;">${s.name}</h3>
+                <div>
+                    <span class="badge ${s.status==='ongoing'?'badge-on':'badge-done'}">${s.status.toUpperCase()}</span>
+                    <span style="margin-left:8px;font-size:12px;color:#aaa;">Best of ${s.bestOf}</span>
+                </div>
+            </div>
+            ${s.status==='completed'?`<div style="text-align:center;padding:10px;background:rgba(253,203,110,0.1);border-radius:10px;margin-bottom:10px;">
+                <span style="font-size:1.3em;">🏆 Winner: <b class="text-yellow">${seriesWinner}</b></span>
+            </div>`:''}
+            <div class="series-score-row">
+                <div>
+                    <div class="text-green" style="font-weight:bold;">${s.tAName}</div>
+                    <div class="big text-green">${wA}</div>
+                    <div style="font-size:11px;color:#888;">${tAn||'No players'}</div>
+                    <div class="progress-bar"><div class="progress-fill pg" style="width:${Math.min(pA,100)}%"></div></div>
+                </div>
+                <div>
+                    <div class="vs">VS</div>
+                    <div style="color:#888;font-size:12px;margin-top:5px;">${played}/${s.bestOf}</div>
+                </div>
+                <div>
+                    <div class="text-blue" style="font-weight:bold;">${s.tBName}</div>
+                    <div class="big text-blue">${wB}</div>
+                    <div style="font-size:11px;color:#888;">${tBn||'No players'}</div>
+                    <div class="progress-bar"><div class="progress-fill pr" style="width:${Math.min(pB,100)}%"></div></div>
+                </div>
+            </div>
+            ${payment.total>0?`<div style="margin-top:10px;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px;">
+                <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:5px;">
+                    <span>💰 Total: <b class="text-yellow">₹${payment.total}</b></span>
+                    <span>✅ Paid: <b class="text-green">₹${payment.paid}</b></span>
+                    <span>❌ Remaining: <b class="text-red">₹${payRemain}</b></span>
+                    <span class="badge ${payRemain<=0?'badge-paid':'badge-unpaid'}">${payRemain<=0?'PAID':'UNPAID'}</span>
+                </div>
+            </div>`:''}
+            ${matches.length>0?`<details style="margin-top:10px;">
+                <summary style="cursor:pointer;color:#00d2ff;font-size:13px;">View Match Results (${matches.length})</summary>
+                <div style="margin-top:8px;">
+                    ${matches.map((m,i)=>`<div style="padding:6px 10px;margin:4px 0;background:rgba(255,255,255,0.03);border-radius:8px;display:flex;justify-content:space-between;font-size:13px;">
+                        <span>Match ${i+1} • ${m.date}</span>
+                        <span>${m.sA} - ${m.sB}</span>
+                        <span class="${m.win==='tA'?'text-green':'text-blue'}">🏆 ${m.win==='tA'?s.tAName:s.tBName}</span>
+                    </div>`).join('')}
+                </div>
+            </details>`:''}
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                ${s.status==='ongoing'?`<button class="btn btn-success btn-sm" onclick="openSM('${s.id}')">➕ Add Match</button>`:''}
+                ${payment.total>0?`<button class="btn btn-info btn-sm" onclick="openSP('${s.id}')">💰 Payment</button>`:''}
+                <button class="btn btn-danger btn-sm" onclick="delSeries('${s.id}')">🗑️ Delete</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openSM(sid) {
+    const s = D.series.find(x=>x.id===sid);
+    document.getElementById('smId').value = sid;
+    document.getElementById('smDate').value = today();
+    document.getElementById('smWin').innerHTML = `<option value="tA">${s.tAName}</option><option value="tB">${s.tBName}</option>`;
+    document.getElementById('smModal').classList.add('active');
+}
+
+function addSeriesMatch() {
+    const sid = document.getElementById('smId').value;
+    const s = D.series.find(x=>x.id===sid);
+    const date = document.getElementById('smDate').value;
+    const sA = parseInt(document.getElementById('smSA').value)||0;
+    const sB = parseInt(document.getElementById('smSB').value)||0;
+    const win = document.getElementById('smWin').value;
+    if(!date) { toast('Select date!',false); return; }
+    if(!s.matches) s.matches = [];
+    const wA = s.matches.filter(m=>m.win==='tA').length;
+    const wB = s.matches.filter(m=>m.win==='tB').length;
+    if(wA>=s.winsNeeded || wB>=s.winsNeeded) { toast('Series already completed!',false); return; }
+    s.matches.push({ date, sA, sB, win });
+    D.matches.push({
+        id: uid(), date, t1: s.tA, t2: s.tB, s1: sA, s2: sB,
+        win: win==='tA'?'t1':'t2', type: 'series', seriesName: s.name
+    });
+    save();
+    closeM('smModal');
+    toast('Series match added! 🏐');
+    document.getElementById('smSA').value=''; document.getElementById('smSB').value='';
+    renderSeriesList();
+}
+
+function openSP(sid) {
+    const s = D.series.find(x=>x.id===sid);
+    if(!s.payment) s.payment = { total:0, paid:0, history:[] };
+    document.getElementById('spId').value = sid;
+    document.getElementById('spTotal').textContent = '₹'+s.payment.total;
+    document.getElementById('spPaid').textContent = '₹'+s.payment.paid;
+    document.getElementById('spRemain').textContent = '₹'+(s.payment.total-s.payment.paid);
+    document.getElementById('spAmt').value = '';
+    document.getElementById('spDate').value = today();
+    document.getElementById('spNote').value = '';
+    const hist = document.getElementById('spHistory');
+    if((s.payment.history||[]).length) {
+        hist.innerHTML = '<h3 style="color:#00d2ff;margin-bottom:8px;">Payment History</h3>' +
+            s.payment.history.map(h=>`<div style="padding:6px 10px;margin:3px 0;background:rgba(255,255,255,0.03);border-radius:8px;display:flex;justify-content:space-between;font-size:13px;">
+                <span>${h.date}</span><span class="text-green">₹${h.amount}</span><span style="color:#888;">${h.note||''}</span>
+            </div>`).join('');
+    } else { hist.innerHTML = ''; }
+    document.getElementById('spModal').classList.add('active');
+}
+
+function paySeriesAmt() {
+    const sid = document.getElementById('spId').value;
+    const s = D.series.find(x=>x.id===sid);
+    const amt = parseInt(document.getElementById('spAmt').value)||0;
+    const date = document.getElementById('spDate').value;
+    const note = document.getElementById('spNote').value.trim();
+    if(amt<=0) { toast('Enter valid amount!',false); return; }
+    if(!s.payment.history) s.payment.history = [];
+    s.payment.paid += amt;
+    s.payment.history.push({ date, amount: amt, note });
+    save();
+    closeM('spModal');
+    toast('Payment recorded! 💳');
+    renderSeriesList();
+}
+
+function delSeries(id) {
+    if(!confirm('Delete this series?')) return;
+    D.series = D.series.filter(x=>x.id!==id);
+    save();
+    toast('Series deleted!');
+    renderSeriesList();
+}
+
+// ===== ATTENDANCE STATS & FINE SYSTEM =====
+function getFineRate() {
+    return D.fineRate || 20;
+}
+
+function saveFineRate() {
+    const rate = parseInt(document.getElementById('fineRate').value) || 20;
+    D.fineRate = rate;
+    save();
+    toast('Fine rate updated to ₹' + rate);
+    renderAttStatsSection();
+}
+
+function getAttFineStats(pid) {
+    let present = 0, absent = 0;
+    const dates = Object.keys(D.attendance || {});
+    dates.forEach(d => {
+        const arr = D.attendance[d] || [];
+        if(arr.includes(pid)) present++;
+        else absent++;
+    });
+    const fineRate = getFineRate();
+    const totalFine = absent * fineRate;
+    
+    // Get paid amount from finePayments
+    if(!D.finePayments) D.finePayments = {};
+    const payments = D.finePayments[pid] || [];
+    const paid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const remain = totalFine - paid;
+    
+    return { present, absent, totalFine, paid, remain, payments };
+}
+
+function renderAttStatsSection() {
+    document.getElementById('fineRate').value = getFineRate();
+    
+    const select = document.getElementById('attStatsPlayer');
+    select.innerHTML = '<option value="">-- Select Player --</option>' + 
+        D.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    
+    renderAllAttSummary();
+}
+
+function renderPlayerAttStats() {
+    const pid = document.getElementById('attStatsPlayer').value;
+    const div = document.getElementById('playerAttDetails');
+    
+    if(!pid) { div.innerHTML = ''; return; }
+    
+    const player = D.players.find(p => p.id === pid);
+    const stats = getAttFineStats(pid);
+    const fineRate = getFineRate();
+    
+    div.innerHTML = `
+        <div style="background:linear-gradient(135deg,rgba(0,184,148,0.1),rgba(0,210,255,0.1));border:2px solid #00b894;border-radius:15px;padding:20px;margin-top:15px;">
+            <h3 style="color:#00d2ff;margin-bottom:15px;">📋 ${player.name} - Attendance & Fine</h3>
+            
+            <div style="background:rgba(255,255,255,0.05);padding:12px;border-radius:10px;margin:8px 0;border-left:4px solid #00b894;">
+                <b class="text-green">✅ Total Present:</b> <span style="font-size:1.3em;font-weight:bold;">${stats.present}</span>
+            </div>
+            
+            <div style="background:rgba(255,255,255,0.05);padding:12px;border-radius:10px;margin:8px 0;border-left:4px solid #d63031;">
+                <b class="text-red">❌ Total Absent:</b> <span style="font-size:1.3em;font-weight:bold;">${stats.absent}</span>
+            </div>
+            
+            <div style="background:rgba(214,48,49,0.1);padding:12px;border-radius:10px;margin:8px 0;border-left:4px solid #d63031;">
+                <b style="color:#d63031;">⚠️ Total Jurmana:</b> <span style="font-size:1.3em;font-weight:bold;color:#d63031;">${stats.totalFine} Rs</span>
+                <small style="color:#aaa;display:block;margin-top:3px;">(${stats.absent} absents × ₹${fineRate})</small>
+            </div>
+            
+            <div style="background:rgba(0,184,148,0.1);padding:12px;border-radius:10px;margin:8px 0;border-left:4px solid #00b894;">
+                <b class="text-green">💰 Paid:</b> <span style="font-size:1.3em;font-weight:bold;" class="text-green">${stats.paid} Rs</span>
+            </div>
+            
+            <div style="background:rgba(253,203,110,0.1);padding:12px;border-radius:10px;margin:8px 0;border-left:4px solid #fdcb6e;">
+                <b class="text-yellow">📌 Baqaya:</b> <span style="font-size:1.3em;font-weight:bold;" class="text-yellow">${stats.remain} Rs</span>
+            </div>
+            
+            ${stats.remain > 0 ? `
+                <button class="btn btn-success" onclick="openFinePay('${pid}')" style="margin-top:10px;">💳 Record Payment</button>
+            ` : '<div style="text-align:center;color:#00b894;font-weight:bold;margin-top:10px;">✅ All Cleared!</div>'}
+            
+            ${stats.payments.length > 0 ? `
+                <h4 style="color:#00d2ff;margin:15px 0 8px;">💳 Payment History</h4>
+                ${stats.payments.map(p => `
+                    <div style="display:flex;justify-content:space-between;background:rgba(255,255,255,0.03);padding:8px 12px;border-radius:8px;margin:5px 0;font-size:13px;">
+                        <span>${p.date}</span>
+                        <span class="text-green">₹${p.amount}</span>
+                        <span style="color:#888;">${p.note || ''}</span>
+                        <button class="del-btn" onclick="delFinePayment('${pid}','${p.id}')">🗑️</button>
+                    </div>
+                `).join('')}
+            ` : ''}
+        </div>
+    `;
+}
+
+function renderAllAttSummary() {
+    const tbody = document.querySelector('#allAttTable tbody');
+    tbody.innerHTML = D.players.map(p => {
+        const s = getAttFineStats(p.id);
+        return `<tr>
+            <td style="font-weight:bold;">${p.name}</td>
+            <td class="text-green">${s.present}</td>
+            <td class="text-red">${s.absent}</td>
+            <td class="text-yellow">₹${s.totalFine}</td>
+            <td class="text-green">₹${s.paid}</td>
+            <td class="${s.remain > 0 ? 'text-red' : 'text-green'}">₹${s.remain}</td>
+            <td>
+                ${s.remain > 0 ? 
+                    `<button class="btn btn-success btn-sm" onclick="openFinePay('${p.id}')">💳 Pay</button>` : 
+                    '<span class="text-green">✅</span>'}
+            </td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="7" style="color:#888;">No players</td></tr>';
+}
+
+function openFinePay(pid) {
+    const player = D.players.find(p => p.id === pid);
+    const stats = getAttFineStats(pid);
+    
+    document.getElementById('finePayPid').value = pid;
+    document.getElementById('finePayName').textContent = player.name;
+    document.getElementById('finePayTotal').textContent = '₹' + stats.totalFine;
+    document.getElementById('finePayPaid').textContent = '₹' + stats.paid;
+    document.getElementById('finePayRemain').textContent = '₹' + stats.remain;
+    document.getElementById('finePayAmt').value = stats.remain;
+    document.getElementById('finePayDate').value = today();
+    document.getElementById('finePayNote').value = '';
+    
+    const hist = document.getElementById('finePayHistory');
+    if(stats.payments.length) {
+        hist.innerHTML = '<h4 style="color:#00d2ff;margin-bottom:8px;">Payment History</h4>' +
+            stats.payments.map(p => `<div style="padding:6px 10px;margin:3px 0;background:rgba(255,255,255,0.03);border-radius:8px;display:flex;justify-content:space-between;font-size:13px;">
+                <span>${p.date}</span><span class="text-green">₹${p.amount}</span><span style="color:#888;">${p.note||''}</span>
+            </div>`).join('');
+    } else { hist.innerHTML = ''; }
+    
+    document.getElementById('finePayModal').classList.add('active');
+}
+
+function recordFinePayment() {
+    const pid = document.getElementById('finePayPid').value;
+    const amt = parseInt(document.getElementById('finePayAmt').value) || 0;
+    const date = document.getElementById('finePayDate').value;
+    const note = document.getElementById('finePayNote').value.trim();
+    
+    if(amt <= 0) { toast('Enter valid amount!', false); return; }
+    if(!date) { toast('Select date!', false); return; }
+    
+    if(!D.finePayments) D.finePayments = {};
+    if(!D.finePayments[pid]) D.finePayments[pid] = [];
+    
+    D.finePayments[pid].push({
+        id: uid(),
+        amount: amt,
+        date: date,
+        note: note
+    });
+    
+    save();
+    closeM('finePayModal');
+    toast('Payment recorded! 💳');
+    renderAttStatsSection();
+    renderPlayerAttStats();
+}
+
+function delFinePayment(pid, payId) {
+    if(!confirm('Delete this payment?')) return;
+    if(D.finePayments && D.finePayments[pid]) {
+        D.finePayments[pid] = D.finePayments[pid].filter(p => p.id !== payId);
+        save();
+        toast('Payment deleted!');
+        renderPlayerAttStats();
+        renderAllAttSummary();
+    }
+}
+
+function renderStats() {
+    const sortBy = document.getElementById('statSort').value;
+    let list = D.players.map(p=>({ ...p, ...getStats(p.id) }));
+    switch(sortBy) {
+        case 'wins': list.sort((a,b)=>b.w-a.w); break;
+        case 'winrate': list.sort((a,b)=>b.wr-a.wr); break;
+        case 'attendance': list.sort((a,b)=>b.att-a.att); break;
+        case 'matches': list.sort((a,b)=>b.m-a.m); break;
+        case 'losses': list.sort((a,b)=>b.l-a.l); break;
+    }
+    const tbody = document.querySelector('#statTbl tbody');
+    tbody.innerHTML = list.map((p,i) => {
+        const icon = i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
+        return `<tr>
+            <td style="font-size:1.2em;">${icon}</td>
+            <td style="font-weight:bold;">${p.name}</td>
+            <td class="text-blue">${p.att} days</td>
+            <td>${p.m}</td>
+            <td class="text-green">${p.w}</td>
+            <td class="text-red">${p.l}</td>
+            <td class="text-yellow">${p.wr}%</td>
+        </tr>`;
+    }).join('');
+}
+
+function renderDash() {
+    const tp = D.players.length;
+    const tm = D.matches.filter(m=>m.type==='practice').length;
+    const ts = D.series.length;
+    const as = D.series.filter(s=>s.status==='ongoing').length;
+    const totalSeriesPay = D.series.reduce((s,x)=>s+(x.payment?.total||0),0);
+    const totalSeriesPaid = D.series.reduce((s,x)=>s+(x.payment?.paid||0),0);
+    const totalAttDays = Object.keys(D.attendance||{}).length;
+
+    document.getElementById('d-stats').innerHTML = `
+        <div class="stat-card"><div class="num">${tp}</div><div class="lbl">Players</div></div>
+        <div class="stat-card"><div class="num">${totalAttDays}</div><div class="lbl">Attendance Days</div></div>
+        <div class="stat-card"><div class="num">${tm}</div><div class="lbl">Practice Matches</div></div>
+        <div class="stat-card"><div class="num">${ts}</div><div class="lbl">Total Series</div></div>
+        <div class="stat-card"><div class="num">${as}</div><div class="lbl">Active Series</div></div>
+        <div class="stat-card"><div class="num text-green">₹${totalSeriesPaid}</div><div class="lbl">Series Paid</div></div>
+        <div class="stat-card"><div class="num text-red">₹${totalSeriesPay-totalSeriesPaid}</div><div class="lbl">Series Unpaid</div></div>
+    `;
+
+    let list = D.players.map(p=>({...p,...getStats(p.id)})).sort((a,b)=>b.w-a.w).slice(0,5);
+    document.querySelector('#d-top tbody').innerHTML = list.map((p,i) => {
+        const icon = i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
+        return `<tr>
+            <td style="font-size:1.2em;">${icon}</td>
+            <td style="font-weight:bold;">${p.name}</td>
+            <td class="text-blue">${p.att}</td>
+            <td>${p.m}</td>
+            <td class="text-green">${p.w}</td>
+            <td class="text-red">${p.l}</td>
+            <td class="text-yellow">${p.wr}%</td>
+        </tr>`;
+    }).join('');
+
+    const recent = [...D.matches].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,3);
+    const rc = document.getElementById('d-recent');
+    if(!recent.length) { rc.innerHTML='<p style="color:#888;text-align:center;">No matches yet</p>'; return; }
+    rc.innerHTML = recent.map(m => {
+        const t1n = (m.t1||[]).map(pName).join(', ');
+        const t2n = (m.t2||[]).map(pName).join(', ');
+        const badge = m.type==='series'?`<span class="badge badge-on">Series</span>`:`<span class="badge badge-done">Practice</span>`;
+        return `<div class="match-card">
+            <div class="match-top"><span class="text-yellow">📅 ${m.date}</span>${badge}</div>
+            <div style="display:flex;justify-content:space-around;align-items:center;flex-wrap:wrap;gap:5px;">
+                <div style="text-align:center;">
+                    <div class="${m.win==='t1'?'text-green':'text-red'}">${m.win==='t1'?'🏆':''} T1: ${m.s1}</div>
+                    <div style="font-size:11px;color:#888;">${t1n}</div>
+                </div>
+                <span class="vs">VS</span>
+                <div style="text-align:center;">
+                    <div class="${m.win==='t2'?'text-green':'text-red'}">${m.win==='t2'?'🏆':''} T2: ${m.s2}</div>
+                    <div style="font-size:11px;color:#888;">${t2n}</div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// Initialize on page load
+loadFromFirebase();
+</script>
+</body>
+</html>
